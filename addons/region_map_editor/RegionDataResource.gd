@@ -27,22 +27,16 @@ signal info_changed
 # -------------------------------------------------------------------------
 # Exports
 # -------------------------------------------------------------------------
-export var texture : Texture = null				setget set_texture
 export (int, 2, 1024, 1) var tile_size = 16
 
 # -------------------------------------------------------------------------
 # Variables
 # -------------------------------------------------------------------------
-var _cells = {}
+export var _cells : Dictionary = {}
 
 # -------------------------------------------------------------------------
 # Setters / Getters
 # -------------------------------------------------------------------------
-func set_texture (t : Texture) -> void:
-	if texture != t:
-		texture = t
-		emit_signal("info_changed")
-
 func set_tile_size (s : int) -> void:
 	if s > 0 and s <= 1024 and s != tile_size:
 		tile_size = s
@@ -99,18 +93,20 @@ func _GetCell(position : Vector2, create_if_not_exist : bool = false):
 		return _CreateCell(position)
 	return null
 
+
 func _GetNeighborPosition(position : Vector2, wall : int) -> Vector2:
 	var npos : Vector2 = Vector2()
 	match wall:
 		WALL.North:
-			npos = position + Vector2.DOWN
-		WALL.East:
-			npos = position + Vector2.LEFT
-		WALL.South:
 			npos = position + Vector2.UP
-		WALL.West:
+		WALL.East:
 			npos = position + Vector2.RIGHT
+		WALL.South:
+			npos = position + Vector2.DOWN
+		WALL.West:
+			npos = position + Vector2.LEFT
 	return npos
+
 
 func _OppositeWall(wall : int) -> int:
 	match wall:
@@ -165,6 +161,23 @@ func is_wall_set(pos : Vector2, wall : int) -> bool:
 		if cell != null:
 			return (cell.edges & wall) == wall
 	return false
+
+func get_wall_id_at(pos : Vector2) -> int:
+	var cell = _GetCell(pos.floor())
+	if cell != null:
+		return cell.edges & 0x0F
+	return 0
+
+func get_cells() -> Array:
+	var walls : Array = []
+	for pos in _cells.keys():
+		var cell = _cells[pos]
+		walls.append({
+			"position":pos,
+			"floor_id":cell.floor_id,
+			"wall_id":cell.edges & 0x0f,
+		})	
+	return walls
 
 # -------------------------------------------------------------------------
 # Handler Methods

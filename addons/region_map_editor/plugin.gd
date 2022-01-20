@@ -2,7 +2,7 @@ tool
 extends EditorPlugin
 
 
-var current_resource : RegionMap = null
+var current_resource : RegionMap
 
 
 func _enter_tree():
@@ -18,6 +18,12 @@ func edit(object):
 func handles(object):
 	return object is RegionMap
 
+func make_visible(visible):
+	if visible == false:
+		current_resource = null
+
+
 func forward_canvas_gui_input(event):
 	if current_resource != null:
 		current_resource._tool_unhandled_input(event)
+		return true

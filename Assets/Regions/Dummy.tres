@@ -1,0 +1,41 @@
+[gd_resource type="Resource" load_steps=2 format=2]
+
+[ext_resource path="res://addons/region_map_editor/RegionDataResource.gd" type="Script" id=1]
+
+[resource]
+script = ExtResource( 1 )
+tile_size = 16
+_cells = {
+Vector2( 1, 4 ): {
+"edges": 2,
+"floor_id": -1
+},
+Vector2( 2, 4 ): {
+"edges": 11,
+"floor_id": -1
+},
+Vector2( 2, 6 ): {
+"edges": 14,
+"floor_id": -1
+},
+Vector2( 3, 4 ): {
+"edges": 10,
+"floor_id": -1
+},
+Vector2( 3, 6 ): {
+"edges": 9,
+"floor_id": -1
+},
+Vector2( 4, 4 ): {
+"edges": 8,
+"floor_id": -1
+},
+Vector2( 22, 1 ): {
+"edges": 0,
+"floor_id": -1
+},
+Vector2( 23, 1 ): {
+"edges": 0,
+"floor_id": -1
+}
+}
