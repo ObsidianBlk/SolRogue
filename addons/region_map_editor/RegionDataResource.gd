@@ -25,32 +25,160 @@ enum CORNER {
 signal info_changed
 
 # -------------------------------------------------------------------------
-# Exports
-# -------------------------------------------------------------------------
-export (int, 2, 1024, 1) var tile_size = 16
-
-# -------------------------------------------------------------------------
 # Variables
 # -------------------------------------------------------------------------
-export var _cells : Dictionary = {}
+var _tile_size : int = 16
+var _tile_set : TileSet = null
+var _floor_sets : Array = []
+var _wall_sets : Array = []
+var _cells : Dictionary = {}
+
 
 # -------------------------------------------------------------------------
 # Setters / Getters
 # -------------------------------------------------------------------------
-func set_tile_size (s : int) -> void:
-	if s > 0 and s <= 1024 and s != tile_size:
-		tile_size = s
-		emit_signal("info_changed")
+func set_tile_set(ts : TileSet) -> void:
+	_tile_set = ts
+	emit_signal("info_changed")
+
+func get_tile_set() -> TileSet:
+	return _tile_set
+
+func has_tile_set() -> bool:
+	return _tile_set != null
+
+func set_floor_sets(fs : String) -> void:
+	if fs == "":
+		_floor_sets.clear()
+		return
+	
+	var fsl : Array = fs.split(",")
+	if fsl.size() % 2 > 0:
+		return
+	
+	var new_floor_sets : Array = []
+	var parsing_name : bool = true
+	
+	var floor_name : String = ""
+	var floor_count : int = 0
+	for item in fsl:
+		if parsing_name:
+			floor_name = item.lstrip(" \t\r\n").rstrip(" \t\r\n")
+			if floor_name == "":
+				return
+		else:
+			if not item.is_valid_integer():
+				return
+			floor_count = item.to_int()
+			if floor_count <= 0:
+				return
+		
+		if not parsing_name:
+			new_floor_sets.append({
+				"name": floor_name,
+				"count": floor_count
+			})
+		parsing_name = !parsing_name
+	
+	_floor_sets = new_floor_sets
+
+func get_floor_sets() -> String:
+	if _floor_sets.size() <= 0:
+		return ""
+	var v = ""
+	for item in _floor_sets:
+		if v != "":
+			v += ","
+		v += item.name + "," + String(item.count)
+	return v
 
 
 # -------------------------------------------------------------------------
 # Override Methods
 # -------------------------------------------------------------------------
 
+func _get(property : String):
+	match property:
+		"tile_size":
+			return _tile_size
+		"tile_set":
+			return _tile_set
+		"floor_sets":
+			return get_floor_sets()
+		"cells":
+			return _cells
+	return null
+
+
+func _set(property : String, value) -> bool:
+	var success = true
+	match property:
+		"tile_size":
+			if typeof(value) == TYPE_INT and value > 0 and value <= 1024:
+				if _tile_size != value:
+					_tile_size = value
+					emit_signal("info_changed")
+			else : success = false
+		"tile_set":
+			if value == null or value is TileSet:
+				_tile_set = value
+				emit_signal("info_changed")
+			else : success = false
+		"floor_sets":
+			if typeof(value) == TYPE_STRING:
+				set_floor_sets(value)
+			else : success = false
+		"cells":
+			if typeof(value) == TYPE_DICTIONARY:
+				_SetCellDictionary(value)
+			else : success = false
+		_:
+			success = false
+	
+	if success:
+		property_list_changed_notify()
+	return success
+
+func _get_property_list() -> Array:
+	var props = [
+		{
+			name = "tile_size",
+			type = TYPE_INT,
+			usage = PROPERTY_USAGE_DEFAULT,
+		},
+		{
+			name = "tile_set",
+			type = TYPE_OBJECT,
+			hint = PROPERTY_HINT_RESOURCE_TYPE,
+			hint_string = "TileSet",
+			usage = PROPERTY_USAGE_DEFAULT,
+		},
+		{
+			name = "floor_sets",
+			type = TYPE_STRING,
+			usage = PROPERTY_USAGE_DEFAULT,
+		},
+		{
+			name = "cells",
+			type = TYPE_DICTIONARY,
+			usage = PROPERTY_USAGE_STORAGE,
+		}
+	]
+	return props
+
+func _ready() -> void:
+	print("The cells are: ", _cells)
+
 
 # -------------------------------------------------------------------------
 # Private Methods
 # -------------------------------------------------------------------------
+func _SetCellDictionary(cells : Dictionary) -> bool:
+	_cells = cells
+	emit_signal("info_changed")
+	return true
+
+
 func _CreateCell(position : Vector2) -> Dictionary:
 	if not position in _cells:
 		var cell = {
@@ -167,6 +295,11 @@ func get_wall_id_at(pos : Vector2) -> int:
 	if cell != null:
 		return cell.edges & 0x0F
 	return 0
+
+func get_wall_tile_id(tile_base_name : String, wall_id : int) -> int:
+	if _tile_set != null:
+		return _tile_set.find_tile_by_name(tile_base_name + String(wall_id))
+	return -1
 
 func get_cells() -> Array:
 	var walls : Array = []

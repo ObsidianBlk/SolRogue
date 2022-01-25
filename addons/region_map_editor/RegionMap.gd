@@ -13,7 +13,6 @@ const EDITOR_CELL_EDGE_COLOR : Color = Color(1.0, 0.8, 0.0, 0.5)
 # Export Variables
 # -------------------------------------------------------------------------
 export (Resource) var region_data_resource = null		setget set_region_data_resource
-export var tileset : TileSet = null						setget set_tileset
 
 # -------------------------------------------------------------------------
 # Variables
@@ -32,54 +31,30 @@ var wall_tilemap_node : TileMap = null
 # -------------------------------------------------------------------------
 func set_region_data_resource(res : Resource) -> void:
 	if (res == null or res is RegionDataResource) and res != region_data_resource:
+		if region_data_resource != null:
+			region_data_resource.disconnect("info_changed", self, "_on_resource_info_changed")
 		region_data_resource = res
 		if region_data_resource != null:
+			if not region_data_resource.is_connected("info_changed", self, "_on_resource_info_changed"):
+				region_data_resource.connect("info_changed", self, "_on_resource_info_changed")
 			var cell_size = Vector2(
 				region_data_resource.tile_size,
 				region_data_resource.tile_size
 			)
 			if floor_tilemap_node != null:
 				floor_tilemap_node.cell_size = cell_size
+				floor_tilemap_node.tile_set = region_data_resource.get_tile_set()
 			if wall_tilemap_node != null:
 				wall_tilemap_node.cell_size = cell_size
-			_UpdateCells()
-
-
-func set_tileset(ts : TileSet) -> void:
-	if ts != tileset:
-		tileset = ts
-		if floor_tilemap_node != null:
-			print("Setting floor tileset")
-			floor_tilemap_node.clear()
-			floor_tilemap_node.tile_set = tileset
-		if wall_tilemap_node != null:
-			print("Setting wall tileset")
-			wall_tilemap_node.clear()
-			wall_tilemap_node.tile_set = tileset
+				wall_tilemap_node.tile_set = region_data_resource.get_tile_set()
+			call_deferred("_UpdateCells")
 
 
 # -------------------------------------------------------------------------
 # Override Methods
 # -------------------------------------------------------------------------
 func _ready() -> void:
-	print("Creating Tilemaps")
-	floor_tilemap_node = TileMap.new()
-	wall_tilemap_node = TileMap.new()
-	print("Floor: ", floor_tilemap_node, " | Wall: ", wall_tilemap_node)
-	add_child(floor_tilemap_node)
-	add_child(wall_tilemap_node)
-	if tileset:
-		floor_tilemap_node.tile_set = tileset
-		wall_tilemap_node.tile_set = tileset
-	if region_data_resource != null:
-		var cell_size = Vector2(
-			region_data_resource.tile_size,
-			region_data_resource.tile_size
-		)
-		floor_tilemap_node.cell_size = cell_size
-		wall_tilemap_node.cell_size = cell_size
-	if tileset and region_data_resource:
-		_UpdateCells()
+	call_deferred("_ready_deferred")
 
 
 func _draw() -> void:
@@ -149,6 +124,24 @@ func _tool_process(delta : float) -> void:
 # -------------------------------------------------------------------------
 # Private Tool Methods
 # -------------------------------------------------------------------------
+func _ready_deferred() -> void:
+	floor_tilemap_node = TileMap.new()
+	wall_tilemap_node = TileMap.new()
+	add_child(floor_tilemap_node)
+	add_child(wall_tilemap_node)
+	if region_data_resource != null:
+		var cell_size = Vector2(
+			region_data_resource.tile_size,
+			region_data_resource.tile_size
+		)
+		floor_tilemap_node.cell_size = cell_size
+		floor_tilemap_node.tile_set = region_data_resource.get_tile_set()
+		wall_tilemap_node.cell_size = cell_size
+		wall_tilemap_node.tile_set = region_data_resource.get_tile_set()
+	if region_data_resource:
+		_UpdateCells()
+
+
 func _tool_find_edge(mp : Vector2, n : Vector2, s : Vector2, e : Vector2, w : Vector2, grid_size : int) -> int:
 	var min_d : float = grid_size * 0.3
 	var d : float = grid_size * 2
@@ -181,7 +174,7 @@ func _tool_find_edge(mp : Vector2, n : Vector2, s : Vector2, e : Vector2, w : Ve
 # -------------------------------------------------------------------------
 func _UpdateCells() -> void:
 	print("Attempting Cell Update")
-	if tileset != null and region_data_resource != null:
+	if region_data_resource != null and region_data_resource.has_tile_set():
 		print("Have Tileset and Resource")
 		if wall_tilemap_node != null:
 			print("There are walls")
@@ -189,7 +182,8 @@ func _UpdateCells() -> void:
 		var cells = region_data_resource.get_cells()
 		for cell in cells:
 			if wall_tilemap_node != null:
-				var widx = tileset.find_tile_by_name("Wall" + String(cell.wall_id))
+				#var widx = region_data_resource.tile_set.find_tile_by_name("Wall" + String(cell.wall_id))
+				var widx = region_data_resource.get_wall_tile_id("Wall", cell.wall_id)
 				wall_tilemap_node.set_cell(cell.position.x, cell.position.y, widx)
 
 # -------------------------------------------------------------------------
@@ -200,6 +194,7 @@ func _UpdateCells() -> void:
 # -------------------------------------------------------------------------
 # Handler Methods
 # -------------------------------------------------------------------------
-
+func _on_resource_info_changed() -> void:
+	_UpdateCells()
 
 

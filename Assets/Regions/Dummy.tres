@@ -1,41 +1,120 @@
-[gd_resource type="Resource" load_steps=2 format=2]
+[gd_resource type="Resource" load_steps=3 format=2]
 
 [ext_resource path="res://addons/region_map_editor/RegionDataResource.gd" type="Script" id=1]
+[ext_resource path="res://Assets/Graphics/tileset_a.tres" type="TileSet" id=2]
 
 [resource]
 script = ExtResource( 1 )
 tile_size = 16
-_cells = {
-Vector2( 1, 4 ): {
+tile_set = ExtResource( 2 )
+floor_sets = "Floor,2"
+cells = {
+Vector2( 2, 3 ): {
 "edges": 2,
 "floor_id": -1
 },
 Vector2( 2, 4 ): {
-"edges": 11,
+"edges": 2,
 "floor_id": -1
 },
-Vector2( 2, 6 ): {
-"edges": 14,
-"floor_id": -1
-},
-Vector2( 3, 4 ): {
-"edges": 10,
-"floor_id": -1
-},
-Vector2( 3, 6 ): {
+Vector2( 3, 3 ): {
 "edges": 9,
 "floor_id": -1
 },
-Vector2( 4, 4 ): {
+Vector2( 3, 4 ): {
 "edges": 8,
 "floor_id": -1
 },
-Vector2( 22, 1 ): {
-"edges": 0,
+Vector2( 3, 5 ): {
+"edges": 8,
 "floor_id": -1
 },
-Vector2( 23, 1 ): {
-"edges": 0,
+Vector2( 3, 6 ): {
+"edges": 12,
+"floor_id": -1
+},
+Vector2( 4, 3 ): {
+"edges": 3,
+"floor_id": -1
+},
+Vector2( 4, 4 ): {
+"edges": 2,
+"floor_id": -1
+},
+Vector2( 4, 6 ): {
+"edges": 6,
+"floor_id": -1
+},
+Vector2( 5, 3 ): {
+"edges": 9,
+"floor_id": -1
+},
+Vector2( 5, 4 ): {
+"edges": 8,
+"floor_id": -1
+},
+Vector2( 5, 6 ): {
+"edges": 12,
+"floor_id": -1
+},
+Vector2( 6, 2 ): {
+"edges": 9,
+"floor_id": -1
+},
+Vector2( 6, 3 ): {
+"edges": 2,
+"floor_id": -1
+},
+Vector2( 6, 4 ): {
+"edges": 2,
+"floor_id": -1
+},
+Vector2( 6, 5 ): {
+"edges": 2,
+"floor_id": -1
+},
+Vector2( 6, 6 ): {
+"edges": 6,
+"floor_id": -1
+},
+Vector2( 7, 2 ): {
+"edges": 5,
+"floor_id": -1
+},
+Vector2( 7, 3 ): {
+"edges": 9,
+"floor_id": -1
+},
+Vector2( 7, 4 ): {
+"edges": 8,
+"floor_id": -1
+},
+Vector2( 7, 5 ): {
+"edges": 8,
+"floor_id": -1
+},
+Vector2( 7, 6 ): {
+"edges": 12,
+"floor_id": -1
+},
+Vector2( 8, 2 ): {
+"edges": 3,
+"floor_id": -1
+},
+Vector2( 8, 3 ): {
+"edges": 2,
+"floor_id": -1
+},
+Vector2( 8, 4 ): {
+"edges": 2,
+"floor_id": -1
+},
+Vector2( 8, 5 ): {
+"edges": 2,
+"floor_id": -1
+},
+Vector2( 8, 6 ): {
+"edges": 6,
 "floor_id": -1
 }
 }
