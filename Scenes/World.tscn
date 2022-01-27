@@ -6,9 +6,9 @@
 
 [node name="World" type="Node2D"]
 
-[node name="Soldier" parent="." instance=ExtResource( 1 )]
-position = Vector2( 118, 82 )
-
 [node name="RegionMap" type="Node2D" parent="."]
 script = ExtResource( 3 )
 region_data_resource = ExtResource( 2 )
+
+[node name="Soldier" parent="." instance=ExtResource( 1 )]
+position = Vector2( 118, 82 )

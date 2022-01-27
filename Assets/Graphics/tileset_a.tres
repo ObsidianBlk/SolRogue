@@ -102,7 +102,7 @@ polygon = PoolVector2Array( 15, 0, 16, 0, 16, 16, 15, 16 )
 points = PoolVector2Array( 16, 16, 15, 16, 15, 0, 16, 0 )
 
 [resource]
-0/name = "Floor1"
+0/name = "Floor0"
 0/texture = ExtResource( 1 )
 0/tex_offset = Vector2( 0, 0 )
 0/modulate = Color( 1, 1, 1, 1 )
@@ -116,7 +116,7 @@ points = PoolVector2Array( 16, 16, 15, 16, 15, 0, 16, 0 )
 0/shape_one_way_margin = 0.0
 0/shapes = [  ]
 0/z_index = 0
-1/name = "Floor2"
+1/name = "Floor1"
 1/texture = ExtResource( 1 )
 1/tex_offset = Vector2( 0, 0 )
 1/modulate = Color( 1, 1, 1, 1 )

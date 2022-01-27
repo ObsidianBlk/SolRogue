@@ -25,13 +25,19 @@ enum CORNER {
 signal info_changed
 
 # -------------------------------------------------------------------------
-# Variables
+# Property Variables
 # -------------------------------------------------------------------------
 var _tile_size : int = 16
 var _tile_set : TileSet = null
 var _floor_sets : Array = []
 var _wall_sets : Array = []
 var _cells : Dictionary = {}
+var _seed : int = 0
+
+# -------------------------------------------------------------------------
+# Variables
+# -------------------------------------------------------------------------
+var _RNG : RandomNumberGenerator = null
 
 
 # -------------------------------------------------------------------------
@@ -92,6 +98,20 @@ func get_floor_sets() -> String:
 		v += item.name + "," + String(item.count)
 	return v
 
+func set_wall_sets(ws : String) -> void:
+	if ws == "":
+		_wall_sets.clear()
+	
+	var wsl : Array = ws.split(",")
+	for i in range(0, wsl.size()):
+		wsl[i] = wsl[i].lstrip(" \t\r\n").rstrip(" \t\r\n")
+	_wall_sets = wsl
+
+func get_wall_sets() -> String:
+	if _wall_sets.size() <= 0:
+		return ""
+	return PoolStringArray(_wall_sets).join(",")
+
 
 # -------------------------------------------------------------------------
 # Override Methods
@@ -105,6 +125,10 @@ func _get(property : String):
 			return _tile_set
 		"floor_sets":
 			return get_floor_sets()
+		"wall_sets":
+			return get_wall_sets()
+		"seed":
+			return _seed
 		"cells":
 			return _cells
 	return null
@@ -127,6 +151,16 @@ func _set(property : String, value) -> bool:
 		"floor_sets":
 			if typeof(value) == TYPE_STRING:
 				set_floor_sets(value)
+			else : success = false
+		"wall_sets":
+			if typeof(value) == TYPE_STRING:
+				set_wall_sets(value)
+			else : success = false
+		"seed":
+			if typeof(value) == TYPE_INT:
+				_seed = value
+				_RNG = RandomNumberGenerator.new()
+				_RNG.seed = _seed
 			else : success = false
 		"cells":
 			if typeof(value) == TYPE_DICTIONARY:
@@ -159,10 +193,20 @@ func _get_property_list() -> Array:
 			usage = PROPERTY_USAGE_DEFAULT,
 		},
 		{
+			name = "wall_sets",
+			type = TYPE_STRING,
+			usage = PROPERTY_USAGE_DEFAULT,
+		},
+		{
+			name = "seed",
+			type = TYPE_INT,
+			usage = PROPERTY_USAGE_DEFAULT,
+		},
+		{
 			name = "cells",
 			type = TYPE_DICTIONARY,
 			usage = PROPERTY_USAGE_STORAGE,
-		}
+		},
 	]
 	return props
 
@@ -173,18 +217,43 @@ func _ready() -> void:
 # -------------------------------------------------------------------------
 # Private Methods
 # -------------------------------------------------------------------------
+func _CreateBlankCell() -> Dictionary:
+	return {
+		floor_set_id = 0,
+		floor_id = 0,
+		wall_set_id = 0,
+		edges = 0
+	}
+
 func _SetCellDictionary(cells : Dictionary) -> bool:
-	_cells = cells
+	if cells.empty():
+		_cells.clear()
+	else:
+		var ncells : Dictionary = {}
+		for key in cells.keys():
+			if typeof(key) != TYPE_VECTOR2:
+				return false
+			var cell = cells[key]
+			if typeof(cell) != TYPE_DICTIONARY:
+				return false
+			var ncell = _CreateBlankCell()
+			if "floor_set_id" in cell:
+				ncell.floor_set_id = cell.floor_set_id
+			if "floor_id" in cell:
+				ncell.floor_id = cell.floor_id
+			if "wall_set_id" in cell:
+				ncell.floor_set_id = cell.wall_set_id
+			if "edges" in cell:
+				ncell.edges = cell.edges
+			ncells[key] = ncell
+		_cells = ncells
 	emit_signal("info_changed")
 	return true
 
 
 func _CreateCell(position : Vector2) -> Dictionary:
 	if not position in _cells:
-		var cell = {
-			floor_id = -1,
-			edges = 0
-		}
+		var cell = _CreateBlankCell()
 		_cells[position] = cell
 		
 		var npos = _GetNeighborPosition(position, WALL.North)
@@ -296,10 +365,66 @@ func get_wall_id_at(pos : Vector2) -> int:
 		return cell.edges & 0x0F
 	return 0
 
-func get_wall_tile_id(tile_base_name : String, wall_id : int) -> int:
-	if _tile_set != null:
-		return _tile_set.find_tile_by_name(tile_base_name + String(wall_id))
+func get_wall_tile_id(pos : Vector2) -> int:
+	if _tile_set != null and _wall_sets.size() > 0:
+		var cell = _GetCell(pos.floor())
+		if cell != null and cell.wall_set_id >= 0 and cell.wall_set_id < _wall_sets.size():
+			var widx = cell.edges & 0x0F
+			return _tile_set.find_tile_by_name(_wall_sets[cell.wall_set_id] + String(widx))
 	return -1
+
+#func get_wall_tile_id(tile_base_name : String, wall_id : int) -> int:
+#	if _tile_set != null:
+#		return _tile_set.find_tile_by_name(tile_base_name + String(wall_id))
+#	return -1
+
+func set_floor(pos : Vector2, floor_set_id : int, floor_id : int, create_if_not_exist : bool = true) -> void:
+	if floor_set_id >= 0 and floor_set_id < _floor_sets.size():
+		print("Floor Set ID checks out")
+		if floor_id >= 0 and floor_id < _floor_sets[floor_set_id].count:
+			print("Floor ID checks out")
+			var cell = _GetCell(pos, create_if_not_exist)
+			cell.floor_set_id = floor_set_id
+			cell.floor_id = floor_id
+			emit_signal("info_changed")
+
+func get_floor_tile_id(pos : Vector2) -> int:
+	print("Getting floor tile ID")
+	if _tile_set != null and _floor_sets.size() > 0:
+		print("We have the requisites.")
+		var cell = _GetCell(pos.floor())
+		if cell != null and cell.floor_set_id >= 0 and cell.floor_set_id < _floor_sets.size():
+			print("We have a cell with valid data")
+			var fname = _floor_sets[cell.floor_set_id].name + String(cell.floor_id)
+			print("Looking for tile named: ", fname)
+			return _tile_set.find_tile_by_name(fname)
+	return -1
+
+func has_cell_at(pos : Vector2) -> bool:
+	return pos.floor() in _cells
+
+func remove_cell(pos : Vector2) -> void:
+	pos = pos.floor()
+	if pos in _cells:
+		_cells.erase(pos)
+		emit_signal("info_changed")
+
+func get_used_cells() -> Array:
+	return _cells.keys()
+
+func get_random_cell_position() -> Vector2:
+	if _cells.empty():
+		return Vector2()
+	var keys = _cells.keys()
+	var i = _RNG.randi_range(0, keys.size() - 1)
+	return keys[i]
+
+# ws = World Space
+func get_random_cell_position_ws(centered : bool = false) -> Vector2:
+	var pos = get_random_cell_position() * _tile_size
+	if centered:
+		pos += Vector2(_tile_size * 0.5, _tile_size * 0.5)
+	return pos
 
 func get_cells() -> Array:
 	var walls : Array = []

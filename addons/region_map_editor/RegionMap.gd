@@ -9,6 +9,11 @@ class_name RegionMap
 const EDITOR_CELL_BODY_COLOR : Color = Color(0.0, 1.0, 0.0, 0.5)
 const EDITOR_CELL_EDGE_COLOR : Color = Color(1.0, 0.8, 0.0, 0.5)
 
+const NORTH = 0x01
+const EAST = 0x02
+const SOUTH = 0x04
+const WEST = 0x08
+
 # -------------------------------------------------------------------------
 # Export Variables
 # -------------------------------------------------------------------------
@@ -54,7 +59,24 @@ func set_region_data_resource(res : Resource) -> void:
 # Override Methods
 # -------------------------------------------------------------------------
 func _ready() -> void:
-	call_deferred("_ready_deferred")
+	floor_tilemap_node = TileMap.new()
+	wall_tilemap_node = TileMap.new()
+	add_child(floor_tilemap_node)
+	add_child(wall_tilemap_node)
+	if region_data_resource != null:
+		var cell_size = Vector2(
+			region_data_resource.tile_size,
+			region_data_resource.tile_size
+		)
+		floor_tilemap_node.cell_size = cell_size
+		floor_tilemap_node.tile_set = region_data_resource.get_tile_set()
+		floor_tilemap_node.show_behind_parent = true
+		wall_tilemap_node.cell_size = cell_size
+		wall_tilemap_node.tile_set = region_data_resource.get_tile_set()
+		wall_tilemap_node.show_behind_parent = true
+	if region_data_resource:
+		_UpdateCells()
+	#call_deferred("_ready_deferred")
 
 
 func _draw() -> void:
@@ -79,9 +101,15 @@ func _tool_unhandled_input(event) -> void:
 		_tool_dirty = true
 	elif event is InputEventMouseButton and region_data_resource != null:
 		if event.button_index == BUTTON_LEFT and event.pressed:
-			var enable = not region_data_resource.is_wall_set(_mouse_cell, _tool_edge)
-			region_data_resource.set_wall(_mouse_cell, _tool_edge, enable)
+			if _tool_edge >= 0:
+				var enable = not region_data_resource.is_wall_set(_mouse_cell, _tool_edge)
+				region_data_resource.set_wall(_mouse_cell, _tool_edge, enable)
+			else:
+				region_data_resource.set_floor(_mouse_cell, 0, 0)
 			_UpdateCells()
+		elif event.button_index == BUTTON_RIGHT and event.pressed:
+			print("I'm TRIGGERED")
+			region_data_resource.remove_cell(_mouse_cell)
 
 func _tool_draw() -> void:
 	if region_data_resource == null:
@@ -107,6 +135,9 @@ func _tool_draw() -> void:
 	var color_e : Color = EDITOR_CELL_EDGE_COLOR if edge == RegionDataResource.WALL.East else EDITOR_CELL_BODY_COLOR
 	var color_w : Color = EDITOR_CELL_EDGE_COLOR if edge == RegionDataResource.WALL.West else EDITOR_CELL_BODY_COLOR
 	
+	if edge < 0:
+		draw_rect(Rect2(pos_tl, Vector2(grid_size, grid_size)), EDITOR_CELL_EDGE_COLOR)
+	
 	draw_line(pos_tl, pos_tr, color_n, 2.0)
 	draw_line(pos_bl, pos_br, color_s, 2.0)
 	draw_line(pos_tr, pos_br, color_e, 2.0)
@@ -124,28 +155,12 @@ func _tool_process(delta : float) -> void:
 # -------------------------------------------------------------------------
 # Private Tool Methods
 # -------------------------------------------------------------------------
-func _ready_deferred() -> void:
-	floor_tilemap_node = TileMap.new()
-	wall_tilemap_node = TileMap.new()
-	add_child(floor_tilemap_node)
-	add_child(wall_tilemap_node)
-	if region_data_resource != null:
-		var cell_size = Vector2(
-			region_data_resource.tile_size,
-			region_data_resource.tile_size
-		)
-		floor_tilemap_node.cell_size = cell_size
-		floor_tilemap_node.tile_set = region_data_resource.get_tile_set()
-		wall_tilemap_node.cell_size = cell_size
-		wall_tilemap_node.tile_set = region_data_resource.get_tile_set()
-	if region_data_resource:
-		_UpdateCells()
-
 
 func _tool_find_edge(mp : Vector2, n : Vector2, s : Vector2, e : Vector2, w : Vector2, grid_size : int) -> int:
 	var min_d : float = grid_size * 0.3
 	var d : float = grid_size * 2
 	
+	_tool_edge = -1
 	var _d = mp.distance_to(n)
 	if _d < min_d and _d < d:
 		d = _d
@@ -179,17 +194,44 @@ func _UpdateCells() -> void:
 		if wall_tilemap_node != null:
 			print("There are walls")
 			wall_tilemap_node.clear()
-		var cells = region_data_resource.get_cells()
-		for cell in cells:
+		if floor_tilemap_node != null:
+			print("There are FLOORS")
+			floor_tilemap_node.clear()
+		var cells = region_data_resource.get_used_cells()
+		for pos in cells:
 			if wall_tilemap_node != null:
 				#var widx = region_data_resource.tile_set.find_tile_by_name("Wall" + String(cell.wall_id))
-				var widx = region_data_resource.get_wall_tile_id("Wall", cell.wall_id)
-				wall_tilemap_node.set_cell(cell.position.x, cell.position.y, widx)
+				var widx = region_data_resource.get_wall_tile_id(pos)
+				wall_tilemap_node.set_cell(pos.x, pos.y, widx)
+			if floor_tilemap_node != null:
+				var fidx = region_data_resource.get_floor_tile_id(pos)
+				floor_tilemap_node.set_cell(pos.x, pos.y, fidx)
 
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
+func get_player_start() -> Vector2:
+	if region_data_resource != null:
+		return region_data_resource.get_random_cell_position_ws(true)
+	return Vector2(0, 0)
 
+func can_move(pos : Vector2, dir : int) -> bool:
+	if region_data_resource != null and [NORTH, EAST, SOUTH, WEST].find(dir) >= 0:
+		return not region_data_resource.is_wall_set(pos, dir)
+	return false
+
+func position_to_map_space(pos : Vector2) -> Vector2:
+	if region_data_resource != null:
+		pos = pos / region_data_resource.tile_size
+		pos = pos.floor()
+	return pos
+
+func map_position_to_world_space(pos : Vector2, centered : bool = false) -> Vector2:
+	if region_data_resource != null:
+		pos = pos * region_data_resource.tile_size
+		if centered:
+			pos += Vector2(region_data_resource.tile_size * 0.5, region_data_resource.tile_size * 0.5)
+	return pos
 
 # -------------------------------------------------------------------------
 # Handler Methods
