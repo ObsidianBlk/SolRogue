@@ -27,6 +27,8 @@ var _tool_edge : int = -1
 var _last_mouse_pos : Vector2 = Vector2()
 var _mouse_cell : Vector2 = Vector2()
 
+var _room_start = null
+
 var floor_tilemap_node : TileMap = null
 var wall_tilemap_node : TileMap = null
 
@@ -75,7 +77,10 @@ func _ready() -> void:
 		wall_tilemap_node.tile_set = region_data_resource.get_tile_set()
 		wall_tilemap_node.show_behind_parent = true
 	if region_data_resource:
-		_UpdateCells()
+		if not Engine.editor_hint:
+			region_data_resource.cap()
+		else:
+			_UpdateCells()
 	#call_deferred("_ready_deferred")
 
 
@@ -101,14 +106,35 @@ func _tool_unhandled_input(event) -> void:
 		_tool_dirty = true
 	elif event is InputEventMouseButton and region_data_resource != null:
 		if event.button_index == BUTTON_LEFT and event.pressed:
+			if not Input.is_key_pressed(KEY_CONTROL):
+				_room_start = null
+			
 			if _tool_edge >= 0:
-				var enable = not region_data_resource.is_wall_set(_mouse_cell, _tool_edge)
-				region_data_resource.set_wall(_mouse_cell, _tool_edge, enable)
+				if Input.is_key_pressed(KEY_SHIFT):
+					var enable = not region_data_resource.is_merge_cell(_mouse_cell)
+					region_data_resource.set_merge_cell(_mouse_cell, _tool_edge, enable)
+				else:
+					var enable = not region_data_resource.is_wall_set(_mouse_cell, _tool_edge)
+					region_data_resource.set_wall(_mouse_cell, _tool_edge, enable)
 			else:
-				region_data_resource.set_floor(_mouse_cell, 0, 0)
+				if Input.is_key_pressed(KEY_CONTROL):
+					if _room_start == null:
+						_room_start = _mouse_cell
+					else:
+						var s = Vector2(
+							_room_start.x if _room_start.x < _mouse_cell.x else _mouse_cell.x,
+							_room_start.y if _room_start.y < _mouse_cell.y else _mouse_cell.y
+						)
+						var e = Vector2(
+							_room_start.x if _room_start.x > _mouse_cell.x else _mouse_cell.x,
+							_room_start.y if _room_start.y > _mouse_cell.y else _mouse_cell.y
+						)
+						region_data_resource.generate_room(s, (e.x - s.x) + 1, (e.y - s.y) + 1, 0, 0)
+						_room_start = null
+				else:
+					region_data_resource.set_floor(_mouse_cell, 0, 0)
 			_UpdateCells()
 		elif event.button_index == BUTTON_RIGHT and event.pressed:
-			print("I'm TRIGGERED")
 			region_data_resource.remove_cell(_mouse_cell)
 
 func _tool_draw() -> void:
@@ -137,14 +163,41 @@ func _tool_draw() -> void:
 	
 	if edge < 0:
 		draw_rect(Rect2(pos_tl, Vector2(grid_size, grid_size)), EDITOR_CELL_EDGE_COLOR)
+	if _room_start != null:
+		var pos = map_position_to_world_space(_room_start)
+		draw_rect(Rect2(pos, Vector2(grid_size, grid_size)), Color(0.0, 0.0, 1.0))
+	_tool_draw_merge_cells()
 	
 	draw_line(pos_tl, pos_tr, color_n, 2.0)
 	draw_line(pos_bl, pos_br, color_s, 2.0)
 	draw_line(pos_tr, pos_br, color_e, 2.0)
 	draw_line(pos_tl, pos_bl, color_w, 2.0)
-	
-	
-	#draw_rect(Rect2(pos, Vector2(grid_size, grid_size)), EDITOR_CELL_BODY_COLOR, false, 2.0)
+
+func _tool_draw_merge_cells() -> void:
+	if region_data_resource != null:
+		var lines : Array = [
+			[Vector2(0.0, 0.0), Vector2(0.0, -0.5)],
+			[Vector2(0.0, -0.5), Vector2(-0.5, -0.25)],
+			[Vector2(0.0, -0.5), Vector2(0.5, -0.25)]
+		]
+		var mcells = region_data_resource.get_merge_cells()
+		for cell in mcells:
+			var rot = 0.0
+			var pos = map_position_to_world_space(cell.position) + Vector2(
+				region_data_resource.tile_size * 0.5,
+				region_data_resource.tile_size * 0.5
+			)
+			match cell.merge:
+				RegionDataResource.WALL.East:
+					rot = deg2rad(90)
+				RegionDataResource.WALL.South:
+					rot = deg2rad(180)
+				RegionDataResource.WALL.West:
+					rot = deg2rad(270)
+			for line in lines:
+				var p1 = (line[0].rotated(rot) * region_data_resource.tile_size) + pos
+				var p2 = (line[1].rotated(rot) * region_data_resource.tile_size) + pos
+				draw_line(p1, p2, EDITOR_CELL_EDGE_COLOR, 1.0)
 
 
 func _tool_process(delta : float) -> void:
@@ -188,14 +241,14 @@ func _tool_find_edge(mp : Vector2, n : Vector2, s : Vector2, e : Vector2, w : Ve
 # Private Methods
 # -------------------------------------------------------------------------
 func _UpdateCells() -> void:
-	print("Attempting Cell Update")
+	#print("Attempting Cell Update")
 	if region_data_resource != null and region_data_resource.has_tile_set():
-		print("Have Tileset and Resource")
+		#print("Have Tileset and Resource")
 		if wall_tilemap_node != null:
-			print("There are walls")
+			#print("There are walls")
 			wall_tilemap_node.clear()
 		if floor_tilemap_node != null:
-			print("There are FLOORS")
+			#print("There are FLOORS")
 			floor_tilemap_node.clear()
 		var cells = region_data_resource.get_used_cells()
 		for pos in cells:
@@ -238,5 +291,6 @@ func map_position_to_world_space(pos : Vector2, centered : bool = false) -> Vect
 # -------------------------------------------------------------------------
 func _on_resource_info_changed() -> void:
 	_UpdateCells()
+	_tool_dirty = true
 
 

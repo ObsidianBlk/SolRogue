@@ -38,6 +38,7 @@ var _seed : int = 0
 # Variables
 # -------------------------------------------------------------------------
 var _RNG : RandomNumberGenerator = null
+var _offset : Vector2 = Vector2.ZERO
 
 
 # -------------------------------------------------------------------------
@@ -111,6 +112,12 @@ func get_wall_sets() -> String:
 	if _wall_sets.size() <= 0:
 		return ""
 	return PoolStringArray(_wall_sets).join(",")
+
+func get_offset() -> Vector2:
+	return _offset
+
+func set_offset(o : Vector2) -> void:
+	_offset = o
 
 
 # -------------------------------------------------------------------------
@@ -222,8 +229,9 @@ func _CreateBlankCell() -> Dictionary:
 		floor_set_id = 0,
 		floor_id = 0,
 		wall_set_id = 0,
-		edges = 0
+		edges = 0,
 	}
+
 
 func _SetCellDictionary(cells : Dictionary) -> bool:
 	if cells.empty():
@@ -245,6 +253,8 @@ func _SetCellDictionary(cells : Dictionary) -> bool:
 				ncell.floor_set_id = cell.wall_set_id
 			if "edges" in cell:
 				ncell.edges = cell.edges
+			if "merge" in cell:
+				ncell.merge = cell.merge
 			ncells[key] = ncell
 		_cells = ncells
 	emit_signal("info_changed")
@@ -338,6 +348,79 @@ func _SetWall(cell : Dictionary, wall : int, enable : bool) -> void:
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
+func is_valid() -> bool:
+	return _tile_set != null and _floor_sets.size() > 0 and _wall_sets.size() > 0
+
+func empty() -> bool:
+	return _cells.empty()
+
+func clear() -> void:
+	_cells.clear()
+	emit_signal("info_changed")
+
+func cap() -> void:
+	var mcells : Array = get_merge_cells()
+	for mcell in mcells:
+		if not has_cell_at(_GetNeighborPosition(mcell.position, mcell.merge)):
+			set_wall(mcell.position, mcell.merge, true)
+	emit_signal("info_changed")
+
+
+func merge_region_data(rdr : RegionDataResource, offset : Vector2 = Vector2.ZERO) -> void:
+	if is_valid():
+		if rdr.tile_size != _tile_size or rdr.get_tile_set() != _tile_set:
+			printerr("Source region data tile set or size do not match destination.")
+	for key in rdr._cells.keys():
+		var cell = _CreateBlankCell()
+		cell.floor_set_id = rdr._cells[key].floor_set_id
+		cell.floor_id = rdr._cells[key].floor_id
+		cell.wall_set_id = rdr._cells[key].wall_set_id
+		cell.edges = rdr._cells[key].edges
+		_cells[key + offset] = cell
+
+
+func merge_region_data_source(rd_src : String, offset : Vector2 = Vector2.ZERO) -> void:
+	if ResourceLoader.exists(rd_src):
+		var res : RegionDataResource = ResourceLoader.load(rd_src, "RegionDataResource")
+		if res and res.is_valid():
+			merge_region_data(res, offset)
+
+func set_merge_cell(pos : Vector2, wall : int, enable : bool = true) -> void:
+	if WALL.values().find(wall) >= 0:
+		pos = pos.floor()
+		var cell = _GetCell(pos)
+		if cell:
+			if enable:
+				if is_wall_set(pos, wall):
+					printerr("Wall exists in that direction. Not setting merge point.")
+					return
+				if has_cell_at(_GetNeighborPosition(pos, wall)):
+					printerr("Neighbor cell is defined. Not setting merge point.")
+					return
+				cell.merge = wall
+			else:
+				if cell.has("merge"):
+					cell.erase("merge")
+			emit_signal("info_changed")
+
+
+func is_merge_cell(pos : Vector2) -> bool:
+	pos = pos.floor()
+	if pos in _cells:
+		return _cells[pos].has("merge")
+	return false
+
+func get_merge_cells() -> Array:
+	var mcl : Array = []
+	for key in _cells.keys():
+		if _cells[key].has("merge"):
+			mcl.append({
+				"position":key,
+				"merge":_cells[key].merge,
+			})
+	return mcl
+
+
 func set_wall(pos : Vector2, wall : int, enable : bool = true, create_if_not_exist : bool = true) -> void:
 	if WALL.values().find(wall) >= 0:
 		pos = pos.floor()
@@ -373,10 +456,6 @@ func get_wall_tile_id(pos : Vector2) -> int:
 			return _tile_set.find_tile_by_name(_wall_sets[cell.wall_set_id] + String(widx))
 	return -1
 
-#func get_wall_tile_id(tile_base_name : String, wall_id : int) -> int:
-#	if _tile_set != null:
-#		return _tile_set.find_tile_by_name(tile_base_name + String(wall_id))
-#	return -1
 
 func set_floor(pos : Vector2, floor_set_id : int, floor_id : int, create_if_not_exist : bool = true) -> void:
 	if floor_set_id >= 0 and floor_set_id < _floor_sets.size():
@@ -399,6 +478,32 @@ func get_floor_tile_id(pos : Vector2) -> int:
 			print("Looking for tile named: ", fname)
 			return _tile_set.find_tile_by_name(fname)
 	return -1
+
+func generate_room(pos : Vector2, w : int, h : int, floor_set_id : int, wall_set_id : int, floor_id : int = -1) -> void:
+	if w <= 0 or h <= 0:
+		return
+	if not (floor_set_id >= 0 and floor_set_id < _floor_sets.size() and wall_set_id >= 0 and wall_set_id < _wall_sets.size()):
+		return
+	
+	pos = pos.floor()
+	
+	for j in range(0, h):
+		for i in range(0, w):
+			var npos = pos + Vector2(i, j)
+			if not (npos in _cells):
+				var fid = floor_id
+				if fid < 0:
+					fid = _RNG.randi_range(0, _floor_sets[floor_set_id].count -1)
+				set_floor(npos, floor_set_id, fid, true)
+				if j == 0:
+					set_wall(npos, WALL.North, true, false)
+				if j == h - 1:
+					set_wall(npos, WALL.South, true, false)
+				if i == 0:
+					set_wall(npos, WALL.West, true, false)
+				if i == w - 1:
+					set_wall(npos, WALL.East, true, false)
+
 
 func has_cell_at(pos : Vector2) -> bool:
 	return pos.floor() in _cells
@@ -426,16 +531,16 @@ func get_random_cell_position_ws(centered : bool = false) -> Vector2:
 		pos += Vector2(_tile_size * 0.5, _tile_size * 0.5)
 	return pos
 
-func get_cells() -> Array:
-	var walls : Array = []
-	for pos in _cells.keys():
-		var cell = _cells[pos]
-		walls.append({
-			"position":pos,
-			"floor_id":cell.floor_id,
-			"wall_id":cell.edges & 0x0f,
-		})	
-	return walls
+#func get_cells() -> Array:
+#	var walls : Array = []
+#	for pos in _cells.keys():
+#		var cell = _cells[pos]
+#		walls.append({
+#			"position":pos,
+#			"floor_id":cell.floor_id,
+#			"wall_id":cell.edges & 0x0f,
+#		})	
+#	return walls
 
 # -------------------------------------------------------------------------
 # Handler Methods
