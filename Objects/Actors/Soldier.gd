@@ -1,4 +1,4 @@
-extends Node2D
+extends "res://Objects/Actors/Actor.gd"
 tool
 
 # -------------------------------------------------------------------------
@@ -75,6 +75,14 @@ func _ready() -> void:
 	set_color_body_base(color_body_base)
 	set_color_body_dark(color_body_dark)
 	set_color_body_light(color_body_light)
+	if not Engine.editor_hint:
+		actor_data = ActorDataResource.new()
+		actor_data.set_actor_type("Player")
+		actor_data.add_component("Map", {
+			"position":Vector2.ZERO,
+			"blocking":true
+		})
+		_initalize()
 
 func _process(delta : float) -> void:
 	if blink_delay <= 0.0:

@@ -9,6 +9,16 @@
 config_version=4
 
 _global_script_classes=[ {
+"base": "Node2D",
+"class": "Actor",
+"language": "GDScript",
+"path": "res://Objects/Actors/Actor.gd"
+}, {
+"base": "Resource",
+"class": "ActorDataResource",
+"language": "GDScript",
+"path": "res://Objects/Actors/ActorDataResource.gd"
+}, {
 "base": "Resource",
 "class": "RegionDataResource",
 "language": "GDScript",
@@ -20,6 +30,8 @@ _global_script_classes=[ {
 "path": "res://addons/region_map_editor/RegionMap.gd"
 } ]
 _global_script_class_icons={
+"Actor": "",
+"ActorDataResource": "",
 "RegionDataResource": "",
 "RegionMap": ""
 }
@@ -29,6 +41,11 @@ _global_script_class_icons={
 config/name="SolRogue"
 run/main_scene="res://Scenes/World.tscn"
 config/icon="res://icon.png"
+
+[autoload]
+
+Utils="*res://Scripts/Auto/Utils.gd"
+Scheduler="*res://Scripts/Auto/Scheduler.gd"
 
 [display]
 
