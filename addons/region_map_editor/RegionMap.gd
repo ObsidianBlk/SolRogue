@@ -31,6 +31,7 @@ var _room_start = null
 
 var floor_tilemap_node : TileMap = null
 var wall_tilemap_node : TileMap = null
+var actor_container_node : Node2D = null
 
 
 # -------------------------------------------------------------------------
@@ -40,10 +41,15 @@ func set_region_data_resource(res : Resource) -> void:
 	if (res == null or res is RegionDataResource) and res != region_data_resource:
 		if region_data_resource != null:
 			region_data_resource.disconnect("info_changed", self, "_on_resource_info_changed")
+			region_data_resource.disconnect("actor_added", self, "_on_actor_added")
+			region_data_resource.disconnect("actor_removed", self, "_on_actor_removed")
+			_ClearActors()
 		region_data_resource = res
 		if region_data_resource != null:
 			if not region_data_resource.is_connected("info_changed", self, "_on_resource_info_changed"):
 				region_data_resource.connect("info_changed", self, "_on_resource_info_changed")
+				region_data_resource.connect("actor_added", self, "_on_actor_added")
+				region_data_resource.connect("actor_removed", self, "_on_actor_removed")
 			var cell_size = Vector2(
 				region_data_resource.tile_size,
 				region_data_resource.tile_size
@@ -55,6 +61,7 @@ func set_region_data_resource(res : Resource) -> void:
 				wall_tilemap_node.cell_size = cell_size
 				wall_tilemap_node.tile_set = region_data_resource.get_tile_set()
 			call_deferred("_UpdateCells")
+			call_deferred("_BulkAddActors")
 
 
 # -------------------------------------------------------------------------
@@ -62,8 +69,10 @@ func set_region_data_resource(res : Resource) -> void:
 # -------------------------------------------------------------------------
 func _ready() -> void:
 	floor_tilemap_node = TileMap.new()
+	actor_container_node = Node2D.new()
 	wall_tilemap_node = TileMap.new()
 	add_child(floor_tilemap_node)
+	add_child(actor_container_node)
 	add_child(wall_tilemap_node)
 	if region_data_resource != null:
 		var cell_size = Vector2(
@@ -81,6 +90,7 @@ func _ready() -> void:
 			region_data_resource.cap()
 		else:
 			_UpdateCells()
+			_BulkAddActors()
 	#call_deferred("_ready_deferred")
 
 
@@ -260,9 +270,83 @@ func _UpdateCells() -> void:
 				var fidx = region_data_resource.get_floor_tile_id(pos)
 				floor_tilemap_node.set_cell(pos.x, pos.y, fidx)
 
+func _ClearActors() -> void:
+	if actor_container_node != null:
+		for child in actor_container_node.get_children():
+			actor_container_node.remove_child(child)
+			child.queue_free()
+
+func _BulkAddActors() -> void:
+	if actor_container_node != null and region_data_resource != null:
+		var actors = region_data_resource.get_actors()
+		for actor in actors:
+			var parent = actor.get_parent()
+			if parent != actor_container_node:
+				actor_container_node.add_child(actor)
+
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
+func add_actor(actor : Actor) -> void:
+	if actor_container_node == null or region_data_resource == null:
+		return
+	
+	if actor.actor_data != null and actor.actor_data.has_component("Map"):
+		var actor_position = actor.get_property("Map", "Position")
+		if region_data_resource.has_cell_at(actor_position):
+			var parent = actor.get_parent()
+			if parent:
+				if parent == actor_container_node:
+					return
+				parent.remove_child(actor)
+			actor_container_node.add_child(actor)
+			actor.position = map_position_to_world_space(actor_position, true)
+
+
+func remove_actor(actor : Actor) -> void:
+	if actor_container_node:
+		return
+	
+	var parent = actor.get_parent()
+	if parent == actor_container_node:
+		parent.remove_child(actor)
+
+func get_actors() -> Array:
+	return get_tree().get_nodes_in_group("Actor")
+
+func get_actors_ex(in_group_list : Array = [], out_group_list : Array = []) -> Array:
+	if in_group_list.size() <= 0 and out_group_list.size() <= 0:
+		return get_actors()
+	
+	var garr : Array = []
+	if in_group_list.size() > 0:
+		for group in in_group_list:
+			garr.append_array(get_tree().get_nodes_in_group(group))
+		
+		var t = []
+		for item in garr:
+			if item.is_in_group("Actor"):
+				t.append(item)
+		garr = t
+	
+	if out_group_list.size() > 0:
+		if garr.size() <= 0:
+			garr = get_actors()
+		
+		var t = []
+		for item in garr:
+			var additem = true
+			for group in out_group_list:
+				if item.is_in_group(group):
+					additem = false
+					break
+			if additem:
+				t.append(item)
+		garr = t
+	
+	return garr
+
+
 func get_player_start() -> Vector2:
 	if region_data_resource != null:
 		return region_data_resource.get_random_cell_position_ws(true)
@@ -292,5 +376,11 @@ func map_position_to_world_space(pos : Vector2, centered : bool = false) -> Vect
 func _on_resource_info_changed() -> void:
 	_UpdateCells()
 	_tool_dirty = true
+
+func _on_actor_added(actor : Actor) -> void:
+	pass
+
+func _on_actor_removed(actor : Actor) -> void:
+	pass
 
 

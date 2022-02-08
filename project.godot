@@ -46,6 +46,7 @@ config/icon="res://icon.png"
 
 Utils="*res://Scripts/Auto/Utils.gd"
 Scheduler="*res://Scripts/Auto/Scheduler.gd"
+ActorFactory="*res://Scripts/Auto/ActorFactory.gd"
 
 [display]
 

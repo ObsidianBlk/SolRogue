@@ -1,13 +1,18 @@
 extends Node
 
 # -------------------------------------------------------------------------
-# Export Variables
+# Constants
 # -------------------------------------------------------------------------
+
+const ACTOR_CLASSES = {
+	"Soldier" : preload("res://Objects/Actors/Soldier.tscn")
+}
 
 
 # -------------------------------------------------------------------------
 # Variables
 # -------------------------------------------------------------------------
+
 
 # -------------------------------------------------------------------------
 # Onready Variables
@@ -17,8 +22,7 @@ extends Node
 # -------------------------------------------------------------------------
 # Override Methods
 # -------------------------------------------------------------------------
-func _unhandled_input(event) -> void:
-	pass
+
 
 # -------------------------------------------------------------------------
 # Private Methods
@@ -29,6 +33,19 @@ func _unhandled_input(event) -> void:
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
+func actor_class_list() -> Array:
+	return ACTOR_CLASSES.keys()
+
+func is_actor_class(actor_class : String) -> bool:
+	return actor_class in ACTOR_CLASSES
+
+func create_actor(actor_class : String, data : ActorDataResource = null) -> Actor:
+	if actor_class in ACTOR_CLASSES:
+		var actor = ACTOR_CLASSES[actor_class].instance()
+		actor.actor_data = data
+		return actor
+	return null
+		
 
 
 # -------------------------------------------------------------------------

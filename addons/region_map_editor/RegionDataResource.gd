@@ -23,6 +23,8 @@ enum CORNER {
 # Signals
 # -------------------------------------------------------------------------
 signal info_changed
+signal actor_added(actor)
+signal actor_removed(actor)
 
 # -------------------------------------------------------------------------
 # Property Variables
@@ -32,6 +34,7 @@ var _tile_set : TileSet = null
 var _floor_sets : Array = []
 var _wall_sets : Array = []
 var _cells : Dictionary = {}
+var _actors : Dictionary = {}
 var _seed : int = 0
 
 # -------------------------------------------------------------------------
@@ -138,6 +141,8 @@ func _get(property : String):
 			return _seed
 		"cells":
 			return _cells
+		"actors":
+			return _GetActorDictionary()
 	return null
 
 
@@ -172,6 +177,11 @@ func _set(property : String, value) -> bool:
 		"cells":
 			if typeof(value) == TYPE_DICTIONARY:
 				_SetCellDictionary(value)
+			else : success = false
+		"actors":
+			if typeof(value) == TYPE_DICTIONARY:
+				Utils.call_deferred_once("_SetActorDictionary", self, [value])
+				#_SetActorDictionary(value)
 			else : success = false
 		_:
 			success = false
@@ -211,6 +221,11 @@ func _get_property_list() -> Array:
 		},
 		{
 			name = "cells",
+			type = TYPE_DICTIONARY,
+			usage = PROPERTY_USAGE_STORAGE,
+		},
+		{
+			name = "actors",
 			type = TYPE_DICTIONARY,
 			usage = PROPERTY_USAGE_STORAGE,
 		},
@@ -258,6 +273,55 @@ func _SetCellDictionary(cells : Dictionary) -> bool:
 			ncells[key] = ncell
 		_cells = ncells
 	emit_signal("info_changed")
+	return true
+
+
+func _GetActorDictionary() -> Dictionary:
+	var nactors = {}
+	for key in _actors.keys():
+		nactors[key] = {
+			"data": _actors[key].actor_data,
+			"actor_class": _actors[key].actor_class()
+		}
+	return nactors
+
+func _SetActorDictionary(actors : Dictionary) -> bool:
+	if actors.empty():
+		remove_all_actors()
+	else:
+		var nactors : Dictionary = {}
+		var procfail : bool = false
+		for key in actors.keys():
+			if typeof(key) != TYPE_STRING:
+				procfail = true
+				break
+			var ainfo = actors[key]
+			if not "data" in ainfo:
+				procfail = true
+				break
+			if not ainfo.data is ActorDataResource:
+				procfail = true
+				break
+			if ainfo.data.actor_id != key:
+				procfail = true
+				break
+			if not "actor_class" in ainfo:
+				procfail = true
+				break
+			if not ActorFactory.is_actor_class(ainfo.actor_class):
+				procfail = true
+				break
+			var a = ActorFactory.create_actor(ainfo.actor_class, ainfo.data)
+			nactors[key] = a
+		if procfail:
+			for key in nactors.keys:
+				nactors[key].queue_free()
+			nactors.clear()
+			return false
+		
+		remove_all_actors()
+		for a in nactors:
+			add_actor(a)
 	return true
 
 
@@ -531,16 +595,72 @@ func get_random_cell_position_ws(centered : bool = false) -> Vector2:
 		pos += Vector2(_tile_size * 0.5, _tile_size * 0.5)
 	return pos
 
-#func get_cells() -> Array:
-#	var walls : Array = []
-#	for pos in _cells.keys():
-#		var cell = _cells[pos]
-#		walls.append({
-#			"position":pos,
-#			"floor_id":cell.floor_id,
-#			"wall_id":cell.edges & 0x0f,
-#		})	
-#	return walls
+
+func find_actor_cell(actor : Actor): # -> Vector2 | null
+	if actor.get_id() in _actors:
+		for key in _cells.keys():
+			var cell = _cells[key]
+			if "actor_id" in cell and cell.actor_id == actor.get_id():
+				return key
+	return null
+
+
+func is_actor_at(pos : Vector2) -> bool:
+	pos = pos.floor()
+	if pos in _cells:
+		if "actor_id" in _cells[pos]:
+			return true
+	return false
+
+func move_actor(actor : Actor, dir : int) -> bool:
+	var cell_pos = find_actor_cell(actor)
+	if cell_pos != null:
+		var ncell_pos = _GetNeighborPosition(cell_pos, dir)
+		if not is_actor_at(ncell_pos):
+			_cells[ncell_pos].actor_id = _cells[cell_pos].actor_id
+			_cells[cell_pos].erase("actor_id")
+			return true
+	return false
+
+
+func get_actors() -> Array:
+	return _actors.values()
+
+func has_actor(actor : Actor) -> bool:
+	return actor.get_id() in _actors
+
+func has_actor_id(actor_id : String) -> bool:
+	return actor_id in _actors
+
+func add_actor(actor : Actor) -> void:
+	if not actor.has_component("Map"):
+		return
+	
+	if not actor.get_id() in _actors:
+		var apos = actor.get_property("Map", "Position")
+		apos = apos.floor()
+		if apos in _cells:
+			if is_actor_at(apos):
+				return
+			_cells[apos].actor_id = actor.get_id()
+		_actors[actor.get_id()] = actor
+		#emit_signal("info_changed")
+		emit_signal("actor_added", actor)
+
+func remove_actor(actor : Actor) -> void:
+	if actor.get_id() in _actors:
+		var pos = find_actor_cell(actor)
+		if pos:
+			_cells[pos].erase("actor_id")
+		_actors.erase(actor.get_id())
+		#emit_signal("info_changed")
+		emit_signal("actor_removed", actor)
+
+func remove_all_actors() -> void:
+	var alist = _actors.values()
+	for actor in alist:
+		remove_actor(actor)
+
 
 # -------------------------------------------------------------------------
 # Handler Methods

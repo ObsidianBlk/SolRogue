@@ -42,7 +42,6 @@ func set_actor_data(r : ActorDataResource) -> void:
 # Override Methods
 # -------------------------------------------------------------------------
 
-
 # -------------------------------------------------------------------------
 # Semi-Private Methods (to be used by child classes/nodes)
 # -------------------------------------------------------------------------
@@ -63,10 +62,14 @@ func _initalize() -> void:
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
+func actor_class() -> String:
+	return "Actor"
+
 func get_id() -> String:
 	if actor_data != null:
 		return actor_data.get_actor_id()
 	return ""
+
 
 # -------------------------------------------------------------------------
 # Handler Methods
