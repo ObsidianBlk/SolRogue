@@ -41,15 +41,10 @@ func set_region_data_resource(res : Resource) -> void:
 	if (res == null or res is RegionDataResource) and res != region_data_resource:
 		if region_data_resource != null:
 			region_data_resource.disconnect("info_changed", self, "_on_resource_info_changed")
-			region_data_resource.disconnect("actor_added", self, "_on_actor_added")
-			region_data_resource.disconnect("actor_removed", self, "_on_actor_removed")
-			_ClearActors()
 		region_data_resource = res
 		if region_data_resource != null:
 			if not region_data_resource.is_connected("info_changed", self, "_on_resource_info_changed"):
 				region_data_resource.connect("info_changed", self, "_on_resource_info_changed")
-				region_data_resource.connect("actor_added", self, "_on_actor_added")
-				region_data_resource.connect("actor_removed", self, "_on_actor_removed")
 			var cell_size = Vector2(
 				region_data_resource.tile_size,
 				region_data_resource.tile_size
@@ -61,7 +56,6 @@ func set_region_data_resource(res : Resource) -> void:
 				wall_tilemap_node.cell_size = cell_size
 				wall_tilemap_node.tile_set = region_data_resource.get_tile_set()
 			call_deferred("_UpdateCells")
-			call_deferred("_BulkAddActors")
 
 
 # -------------------------------------------------------------------------
@@ -90,7 +84,6 @@ func _ready() -> void:
 			region_data_resource.cap()
 		else:
 			_UpdateCells()
-			_BulkAddActors()
 	#call_deferred("_ready_deferred")
 
 
@@ -270,38 +263,46 @@ func _UpdateCells() -> void:
 				var fidx = region_data_resource.get_floor_tile_id(pos)
 				floor_tilemap_node.set_cell(pos.x, pos.y, fidx)
 
-func _ClearActors() -> void:
+func _GetActorAt(pos : Vector2) -> Array:
+	var actor_list : Array = []
 	if actor_container_node != null:
 		for child in actor_container_node.get_children():
-			actor_container_node.remove_child(child)
-			child.queue_free()
-
-func _BulkAddActors() -> void:
-	if actor_container_node != null and region_data_resource != null:
-		var actors = region_data_resource.get_actors()
-		for actor in actors:
-			var parent = actor.get_parent()
-			if parent != actor_container_node:
-				actor_container_node.add_child(actor)
+			if child is Actor and child.i_am("Mappable"):
+				if child.prop("Mappable", "position", Vector2.ZERO) == pos:
+					actor_list.append(child)
+	return actor_list
 
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
 func add_actor(actor : Actor) -> void:
-	if actor_container_node == null or region_data_resource == null:
+	if actor_container_node == null:
 		return
 	
-	if actor.actor_data != null and actor.actor_data.has_component("Map"):
-		var actor_position = actor.get_property("Map", "Position")
-		if region_data_resource.has_cell_at(actor_position):
-			var parent = actor.get_parent()
-			if parent:
-				if parent == actor_container_node:
-					return
-				parent.remove_child(actor)
-			actor_container_node.add_child(actor)
-			actor.position = map_position_to_world_space(actor_position, true)
+	if actor.actor_data != null and actor.actor_data.has_component("Mappable"):
+		var actor_position = actor.prop("Mappable", "position", Vector2.ZERO)
+		var parent = actor.get_parent()
+		if parent:
+			if parent == actor_container_node:
+				return
+			parent.remove_child(actor)
+		actor_container_node.add_child(actor)
+		actor.position = map_position_to_world_space(actor_position, true)
 
+func add_actor_rand_pos(actor : Actor) -> void:
+	if actor_container_node == null:
+		return
+	
+	if actor.actor_data != null and actor.actor_data.has_component("Mappable"):
+		var parent = actor.get_parent()
+		if parent:
+			if parent == actor_container_node:
+				return
+			parent.remove_child(actor)
+		actor_container_node.add_child(actor)
+		var actor_position = region_data_resource.get_random_cell_position()
+		actor.actor_data.set_property("Mappable", "position", actor_position)
+		#actor.position = map_position_to_world_space(actor_position, true)
 
 func remove_actor(actor : Actor) -> void:
 	if actor_container_node:
@@ -349,12 +350,19 @@ func get_actors_ex(in_group_list : Array = [], out_group_list : Array = []) -> A
 
 func get_player_start() -> Vector2:
 	if region_data_resource != null:
-		return region_data_resource.get_random_cell_position_ws(true)
+		return region_data_resource.get_random_cell_position()
 	return Vector2(0, 0)
 
 func can_move(pos : Vector2, dir : int) -> bool:
 	if region_data_resource != null and [NORTH, EAST, SOUTH, WEST].find(dir) >= 0:
-		return not region_data_resource.is_wall_set(pos, dir)
+		if not region_data_resource.is_wall_set(pos, dir):
+			var npos = region_data_resource.get_neighboring_cell(pos, dir)
+			var actors = _GetActorAt(npos)
+			if actors.size() > 0:
+				for actor in actors:
+					if actor.prop("Mappable", "blocking", false):
+						return false
+		return true
 	return false
 
 func position_to_map_space(pos : Vector2) -> Vector2:
@@ -377,10 +385,5 @@ func _on_resource_info_changed() -> void:
 	_UpdateCells()
 	_tool_dirty = true
 
-func _on_actor_added(actor : Actor) -> void:
-	pass
-
-func _on_actor_removed(actor : Actor) -> void:
-	pass
 
 

@@ -1,19 +1,11 @@
 extends Node
-
-# -------------------------------------------------------------------------
-# Constants
-# -------------------------------------------------------------------------
-const ACTOR = preload("res://Objects/Actors/Actor.tscn")
-
-const COMPONENT = {
-	"Mappable": preload("res://Scripts/Components/Mappable.gd")
-}
+class_name Component
 
 
 # -------------------------------------------------------------------------
 # Variables
 # -------------------------------------------------------------------------
-
+var _actor : Actor = null
 
 # -------------------------------------------------------------------------
 # Onready Variables
@@ -23,35 +15,55 @@ const COMPONENT = {
 # -------------------------------------------------------------------------
 # Override Methods
 # -------------------------------------------------------------------------
+func _ready() -> void:
+	pass
 
+
+func _enter_tree() -> void:
+	var parent = get_parent()
+	if not parent is Actor:
+		printerr("Component '", identify(), "' is not connected to an Actor node.")
+		parent.remove_child(self)
+		queue_free()
+		return
+	_actor = parent
+	if not _actor.is_connected("actor_data_changed", self, "_on_actor_data_changed"):
+		_actor.connect("actor_data_changed", self, "_on_actor_data_changed")
+	_component_enter()
+
+func _exit_tree() -> void:
+	_component_exit()
 
 # -------------------------------------------------------------------------
 # Private Methods
 # -------------------------------------------------------------------------
+func _force_trigger() -> void:
+	_enter_tree()
 
+func _component_enter() -> void:
+	pass
 
+func _component_exit() -> void:
+	pass
+
+func _RegisterMethods(methods : Array) -> void:
+	if _actor:
+		for method in methods:
+			if typeof(method) == TYPE_STRING:
+				_actor._RegisterComponentMethod(self, method)
 
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
-func create_actor(component_list : Array = []) -> Actor:
-	var actor : Actor = ACTOR.instance()
-	actor.actor_data = ActorDataResource.new()
-	for component in component_list:
-		var c = create_component(component)
-		if c:
-			actor.add_child(c)
-	return actor
+func identify() -> String:
+	return "Component"
 
-func create_component(component_name : String) -> Node:
-	if component_name in COMPONENT:
-		var n : Node = Node.new()
-		n.set_script(COMPONENT[component_name])
-		return n
-	return null
-
+func notify_property_changed(property_name : String, value) -> void:
+	pass
 
 # -------------------------------------------------------------------------
 # Handler Methods
 # -------------------------------------------------------------------------
+func _on_actor_data_changed() -> void:
+	pass
 

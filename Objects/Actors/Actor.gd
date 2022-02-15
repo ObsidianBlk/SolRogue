@@ -3,6 +3,11 @@ class_name Actor
 
 
 # -------------------------------------------------------------------------
+# Signals
+# -------------------------------------------------------------------------
+signal actor_data_changed()
+
+# -------------------------------------------------------------------------
 # Export Variables
 # -------------------------------------------------------------------------
 export var actor_data : Resource = null				setget set_actor_data
@@ -10,7 +15,7 @@ export var actor_data : Resource = null				setget set_actor_data
 # -------------------------------------------------------------------------
 # Variables
 # -------------------------------------------------------------------------
-
+var _component_methods = {}
 
 # -------------------------------------------------------------------------
 # Onready Variables
@@ -25,51 +30,85 @@ func set_actor_data(r : ActorDataResource) -> void:
 		if actor_data != null:
 			remove_from_group(actor_data.get_actor_type())
 			actor_data.disconnect("type_changed", self, "_on_actor_type_changed")
-			actor_data.disconnect("component_changed", self, "_on_component_changed")
+			actor_data.disconnect("component_added", self, "_on_component_added")
 			actor_data.disconnect("component_removed", self, "_on_component_removed")
 			actor_data.disconnect("property_changed", self, "_on_property_changed")
 			actor_data.disconnect("property_removed", self, "_on_property_removed")
 		actor_data = r
 		if actor_data != null:
 			actor_data.connect("type_changed", self, "_on_actor_type_changed")
-			actor_data.connect("component_changed", self, "_on_component_changed")
+			actor_data.connect("component_added", self, "_on_component_added")
 			actor_data.connect("component_removed", self, "_on_component_removed")
 			actor_data.connect("property_changed", self, "_on_property_changed")
 			actor_data.connect("property_removed", self, "_on_property_removed")
 			add_to_group(actor_data.get_actor_type())
+		emit_signal("actor_data_changed")
 
 # -------------------------------------------------------------------------
 # Override Methods
 # -------------------------------------------------------------------------
+func _ready() -> void:
+	pass
 
-# -------------------------------------------------------------------------
-# Semi-Private Methods (to be used by child classes/nodes)
-# -------------------------------------------------------------------------
-func _initalize() -> void:
-	if not is_in_group("Actor"):
-		add_to_group("Actor")
-	if actor_data != null:
-		var atype = actor_data.get_actor_type()
-		if not is_in_group(atype):
-			add_to_group(atype)
+func add_child(n : Node, legible_unique_name : bool = false) -> void:
+	.add_child(n, legible_unique_name)
+	if n.has_method("_force_trigger"):
+		n._force_trigger()
 
 # -------------------------------------------------------------------------
 # Private Methods
 # -------------------------------------------------------------------------
+func _RegisterComponentMethod(component : Node, method : String) -> void:
+	if not component.has_method("identify"):
+		return
+	
+	var cname = component.identify()
+	if not cname in _component_methods:
+		_component_methods[cname] = {
+			"node": component,
+			"method": []
+		}
+	if _component_methods[cname].method.find(method) < 0:
+		_component_methods[cname].method.append(method)
 
+
+func _UnregisterComponentMethods(component : Node) -> void:
+	if not component.has_method("identify"):
+		return
+	
+	var cname = component.identify()
+	if cname in _component_methods:
+		_component_methods.erase(cname)
+
+func _RemoveComponent(component_name : String) -> void:
+	for child in get_children():
+		if child.has_method("_component_exit"):
+			remove_child(child)
+			child.queue_free()
 
 
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
-func actor_class() -> String:
-	return "Actor"
-
 func get_id() -> String:
 	if actor_data != null:
 		return actor_data.get_actor_id()
 	return ""
 
+func i_am(component_name : String) -> bool:
+	return actor_data != null and actor_data.has_component(component_name)
+
+func prop(component_name : String, property_name : String, default_value = null):
+	if actor_data:
+		return actor_data.get_property(component_name, property_name)
+	return default_value
+
+func cc(component_name : String, method : String, args : Array = [], default_value = null):
+	if component_name in _component_methods:
+		var cinfo = _component_methods[component_name]
+		if cinfo.method.find(method) >= 0:
+			return cinfo.node.callv(method, args)
+	return default_value
 
 # -------------------------------------------------------------------------
 # Handler Methods
@@ -81,13 +120,19 @@ func _on_actor_type_changed(old_type : String, new_type : String) -> void:
 		add_to_group(new_type)
 
 func _on_component_added(component_name : String) -> void:
-	pass
+	var n : Node = ActorFactory.create_component(component_name)
+	if n != null:
+		add_child(n)
 
 func _on_component_removed(component_name : String) -> void:
-	pass
+	_RemoveComponent(component_name)
 
 func _on_property_changed(component_name : String, property_name : String, value) -> void:
-	pass
+	print("Property changed: ", property_name)
+	for child in get_children():
+		if child.has_method("identify"):
+			if child.identify() == component_name:
+				child.notify_property_changed(property_name, value)
 
 func _on_property_removed(component_name : String, property_name : String) -> void:
 	pass

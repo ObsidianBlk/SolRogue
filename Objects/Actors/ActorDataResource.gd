@@ -35,6 +35,9 @@ func set_actor_type(t : String) -> bool:
 		return true
 	return false
 
+func get_actor_type() -> String:
+	return _actor_type
+
 func set_actor_id(id : String) -> bool:
 	id = _Trim(id)
 	if id != "":
