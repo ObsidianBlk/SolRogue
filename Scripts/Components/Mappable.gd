@@ -24,6 +24,7 @@ func _component_enter() -> void:
 	if not _actor.actor_data.has_component(IDENTITY):
 		_actor.actor_data.add_component(identify(), {
 			"position": Vector2.ZERO,
+			"speed": 1.0,
 			"blocking": true,
 		})
 	
@@ -63,12 +64,12 @@ func identify() -> String:
 func can_move(dir : int) -> bool:
 	var map : RegionMap = _get_map()
 	if map:
-		return map.can_move(_actor.get_property(IDENTITY, "position"), dir)
+		return map.can_move(_actor.prop(IDENTITY, "position", Vector2.ZERO), dir)
 	return false
 
-func move(dir : int) -> void:
+func move(dir : int) -> float:
 	if can_move(dir):
-		var pos = _actor.get_property(IDENTITY, "position")
+		var pos = _actor.prop(IDENTITY, "position", Vector2.ZERO)
 		match dir:
 			RegionMap.NORTH:
 				pos += Vector2.UP
@@ -79,20 +80,22 @@ func move(dir : int) -> void:
 			RegionMap.WEST:
 				pos += Vector2.LEFT
 		_actor.actor_data.set_property(IDENTITY, "position", pos)
+		return _actor.prop(IDENTITY, "speed", 0.0)
+	return 0.0
 
 func is_blocking() -> bool:
 	if _actor != null:
-		return _actor.get_property(IDENTITY, "blocking")
+		return _actor.prop(IDENTITY, "blocking", false)
 	return false
-
-func notify_property_changed(property_name : String, value) -> void:
-	print("Notified: ", value)
-	if property_name == "position":
-		_map_to_world()
 
 # -------------------------------------------------------------------------
 # Handler Methods
 # -------------------------------------------------------------------------
+
+func _on_property_changed(property_name : String, value) -> void:
+	print("Notified: ", value)
+	if property_name == "position":
+		_map_to_world()
 
 func _on_actor_data_changed() -> void:
 	if _actor:

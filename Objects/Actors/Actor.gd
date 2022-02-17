@@ -6,6 +6,13 @@ class_name Actor
 # Signals
 # -------------------------------------------------------------------------
 signal actor_data_changed()
+signal turn_ended(time_used, actor)
+
+# -------------------------------------------------------------------------
+# Constants
+# -------------------------------------------------------------------------
+
+const AI_METHOD_NAME : String = "process_ai"
 
 # -------------------------------------------------------------------------
 # Export Variables
@@ -52,8 +59,14 @@ func _ready() -> void:
 
 func add_child(n : Node, legible_unique_name : bool = false) -> void:
 	.add_child(n, legible_unique_name)
-	if n.has_method("_force_trigger"):
-		n._force_trigger()
+	if n.has_method("activate_component"):
+		n.activate_component()
+
+func remove_child(n : Node) -> void:
+	if n.has_method("deactivate_component"):
+		n.deactivate_component()
+	.remove_child(n)
+
 
 # -------------------------------------------------------------------------
 # Private Methods
@@ -80,12 +93,19 @@ func _UnregisterComponentMethods(component : Node) -> void:
 	if cname in _component_methods:
 		_component_methods.erase(cname)
 
+
 func _RemoveComponent(component_name : String) -> void:
 	for child in get_children():
 		if child.has_method("_component_exit"):
 			remove_child(child)
 			child.queue_free()
 
+
+func _FindAI(): # Retuns Dictionary or Null
+	for cname in _component_methods:
+		if _component_methods[cname].method.find(AI_METHOD_NAME) >= 0:
+			return {"cname": cname, "method":AI_METHOD_NAME}
+	return null
 
 # -------------------------------------------------------------------------
 # Public Methods
@@ -94,6 +114,7 @@ func get_id() -> String:
 	if actor_data != null:
 		return actor_data.get_actor_id()
 	return ""
+
 
 func i_am(component_name : String) -> bool:
 	return actor_data != null and actor_data.has_component(component_name)
@@ -109,6 +130,17 @@ func cc(component_name : String, method : String, args : Array = [], default_val
 		if cinfo.method.find(method) >= 0:
 			return cinfo.node.callv(method, args)
 	return default_value
+
+func end_turn(time : float) -> void:
+	emit_signal("turn_ended", time, self)
+
+func start_turn() -> void:
+	var ai = _FindAI()
+	var time : float = 0.1
+	if ai != null:
+		time = cc(ai.cname, ai.method)
+	emit_signal("turn_ended", time, self)
+
 
 # -------------------------------------------------------------------------
 # Handler Methods
@@ -128,11 +160,10 @@ func _on_component_removed(component_name : String) -> void:
 	_RemoveComponent(component_name)
 
 func _on_property_changed(component_name : String, property_name : String, value) -> void:
-	print("Property changed: ", property_name)
 	for child in get_children():
 		if child.has_method("identify"):
 			if child.identify() == component_name:
-				child.notify_property_changed(property_name, value)
+				child._on_property_changed(property_name, value)
 
 func _on_property_removed(component_name : String, property_name : String) -> void:
 	pass

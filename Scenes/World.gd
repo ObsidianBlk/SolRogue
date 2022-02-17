@@ -7,3 +7,4 @@ func _ready() -> void:
 		var actor : Actor = ActorFactory.create_actor(["Mappable"])
 		actor.add_to_group("Player")
 		map.add_actor_rand_pos(actor)
+		Scheduler.add_actor(actor)
