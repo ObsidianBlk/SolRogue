@@ -362,7 +362,7 @@ func can_move(pos : Vector2, dir : int) -> bool:
 				for actor in actors:
 					if actor.prop("Mappable", "blocking", false):
 						return false
-		return true
+			return true
 	return false
 
 func position_to_map_space(pos : Vector2) -> Vector2:
