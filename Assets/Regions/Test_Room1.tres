@@ -1,0 +1,78 @@
+[gd_resource type="Resource" load_steps=3 format=2]
+
+[ext_resource path="res://addons/region_map_editor/RegionDataResource.gd" type="Script" id=1]
+[ext_resource path="res://Assets/Graphics/tileset_a.tres" type="TileSet" id=2]
+
+[resource]
+script = ExtResource( 1 )
+tile_size = 16
+tile_set = ExtResource( 2 )
+floor_sets = "Floor,2"
+wall_sets = "Wall"
+seed = 645876
+cells = {
+Vector2( 1, 3 ): {
+"edges": 5,
+"floor_id": 0,
+"floor_set_id": 0,
+"merge": 8,
+"wall_set_id": 0
+},
+Vector2( 2, 1 ): {
+"edges": 10,
+"floor_id": 0,
+"floor_set_id": 0,
+"merge": 1,
+"wall_set_id": 0
+},
+Vector2( 2, 2 ): {
+"edges": 8,
+"floor_id": 0,
+"floor_set_id": 0,
+"wall_set_id": 0
+},
+Vector2( 2, 3 ): {
+"edges": 2,
+"floor_id": 0,
+"floor_set_id": 0,
+"wall_set_id": 0
+},
+Vector2( 2, 4 ): {
+"edges": 12,
+"floor_id": 0,
+"floor_set_id": 0,
+"wall_set_id": 0
+},
+Vector2( 3, 2 ): {
+"edges": 3,
+"floor_id": 0,
+"floor_set_id": 0,
+"wall_set_id": 0
+},
+Vector2( 3, 3 ): {
+"edges": 8,
+"floor_id": 0,
+"floor_set_id": 0,
+"wall_set_id": 0
+},
+Vector2( 3, 4 ): {
+"edges": 2,
+"floor_id": 0,
+"floor_set_id": 0,
+"wall_set_id": 0
+},
+Vector2( 3, 5 ): {
+"edges": 10,
+"floor_id": 0,
+"floor_set_id": 0,
+"merge": 4,
+"wall_set_id": 0
+},
+Vector2( 4, 3 ): {
+"edges": 5,
+"floor_id": 0,
+"floor_set_id": 0,
+"merge": 2,
+"wall_set_id": 0
+}
+}

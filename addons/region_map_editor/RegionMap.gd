@@ -99,8 +99,10 @@ func _process(delta : float) -> void:
 # -------------------------------------------------------------------------
 # Private Tool Override Methods
 # -------------------------------------------------------------------------
-func _tool_unhandled_input(event) -> void:
+func _tool_unhandled_input(event) -> bool:
 	# NOTE: This method is called directly by the Region Map Editor plugin.
+	var handled = false
+	
 	if event is InputEventMouseMotion:
 		_last_mouse_pos = get_viewport().get_mouse_position()
 		if region_data_resource != null:
@@ -109,6 +111,7 @@ func _tool_unhandled_input(event) -> void:
 		_tool_dirty = true
 	elif event is InputEventMouseButton and region_data_resource != null:
 		if event.button_index == BUTTON_LEFT and event.pressed:
+			handled = true
 			if not Input.is_key_pressed(KEY_CONTROL):
 				_room_start = null
 			
@@ -139,6 +142,9 @@ func _tool_unhandled_input(event) -> void:
 			_UpdateCells()
 		elif event.button_index == BUTTON_RIGHT and event.pressed:
 			region_data_resource.remove_cell(_mouse_cell)
+			handled = true
+	
+	return handled
 
 func _tool_draw() -> void:
 	if region_data_resource == null:

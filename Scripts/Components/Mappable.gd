@@ -93,7 +93,7 @@ func is_blocking() -> bool:
 # -------------------------------------------------------------------------
 
 func _on_property_changed(property_name : String, value) -> void:
-	print("Notified: ", value)
+	#print("Notified: ", value)
 	if property_name == "position":
 		_map_to_world()
 

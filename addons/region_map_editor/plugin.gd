@@ -25,5 +25,5 @@ func make_visible(visible):
 
 func forward_canvas_gui_input(event):
 	if current_resource != null:
-		current_resource._tool_unhandled_input(event)
-		return true
+		return current_resource._tool_unhandled_input(event)
+		#return true

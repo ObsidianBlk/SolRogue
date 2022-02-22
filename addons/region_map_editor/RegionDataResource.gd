@@ -218,7 +218,7 @@ func _get_property_list() -> Array:
 	return props
 
 func _ready() -> void:
-	print("The cells are: ", _cells)
+	pass
 
 
 # -------------------------------------------------------------------------
@@ -261,10 +261,21 @@ func _SetCellDictionary(cells : Dictionary) -> bool:
 	return true
 
 
-func _CreateCell(position : Vector2) -> Dictionary:
+func _CreateCell(position : Vector2, cell_info : Dictionary = {}) -> Dictionary:
 	if not position in _cells:
 		var cell = _CreateBlankCell()
 		_cells[position] = cell
+		
+		if not cell_info.empty():
+			cell.floor_set_id = cell_info.floor_set_id
+			cell.floor_id = cell_info.floor_id
+			cell.wall_set_id = cell_info.wall_set_id
+			cell.edges = cell_info.edges
+			if cell_info.has("merge"):
+				var neighbor = _GetNeighborPosition(position, cell_info.merge)
+				if not neighbor in _cells:
+					cell["merge"] = cell_info.merge
+		
 		
 		var npos = _GetNeighborPosition(position, WALL.North)
 		var ncell = _GetCell(npos)
@@ -354,6 +365,7 @@ func is_valid() -> bool:
 func empty() -> bool:
 	return _cells.empty()
 
+
 func clear() -> void:
 	_cells.clear()
 	emit_signal("info_changed")
@@ -366,24 +378,58 @@ func cap() -> void:
 	emit_signal("info_changed")
 
 
-func merge_region_data(rdr : RegionDataResource, offset : Vector2 = Vector2.ZERO) -> void:
+func copy_region_data_from(rdr : RegionDataResource, offset : Vector2 = Vector2.ZERO) -> bool:
 	if is_valid():
-		if rdr.tile_size != _tile_size or rdr.get_tile_set() != _tile_set:
-			printerr("Source region data tile set or size do not match destination.")
-	for key in rdr._cells.keys():
-		var cell = _CreateBlankCell()
-		cell.floor_set_id = rdr._cells[key].floor_set_id
-		cell.floor_id = rdr._cells[key].floor_id
-		cell.wall_set_id = rdr._cells[key].wall_set_id
-		cell.edges = rdr._cells[key].edges
-		_cells[key + offset] = cell
+		if rdr.tile_size == _tile_size and rdr.get_tile_set() == _tile_set:
+			for key in rdr._cells.keys():
+				var npos = key + offset
+				if not npos in _cells:
+					_CreateCell(npos, rdr._cells[key])
+			return true
+		printerr("Source region data tile set or size do not match destination.")
+	return false
+#			var cell = _CreateBlankCell()
+#			cell.floor_set_id = rdr._cells[key].floor_set_id
+#			cell.floor_id = rdr._cells[key].floor_id
+#			cell.wall_set_id = rdr._cells[key].wall_set_id
+#			cell.edges = rdr._cells[key].edges
+#			_cells[key + offset] = cell
 
 
-func merge_region_data_source(rd_src : String, offset : Vector2 = Vector2.ZERO) -> void:
-	if ResourceLoader.exists(rd_src):
-		var res : RegionDataResource = ResourceLoader.load(rd_src, "RegionDataResource")
-		if res and res.is_valid():
-			merge_region_data(res, offset)
+#func merge_region_data_source(rd_src : String, offset : Vector2 = Vector2.ZERO) -> void:
+#	if ResourceLoader.exists(rd_src):
+#		var res : RegionDataResource = ResourceLoader.load(rd_src, "RegionDataResource")
+#		if res and res.is_valid():
+#			merge_region_data(res, offset)
+
+func merge_region_on_cell(position : Vector2, rdr : RegionDataResource) -> bool:
+	if not is_valid():
+		return false
+	
+	position = position.floor()
+	if position in _cells:
+		var cell = _cells[position]
+		if cell.has("merge"):
+			var opposite : int = _OppositeWall(cell.merge)
+			var mcells = rdr.get_merge_cells(opposite)
+			if mcells.size() > 0:
+				var idx : int = _RNG.randi_range(0, mcells.size() - 1)
+				var rpos = mcells[idx].position
+				var mpos = _GetNeighborPosition(position, cell.merge) - rpos
+				if copy_region_data_from(rdr, mpos):
+					_cells[position].erase("merge")
+					return true
+	return false
+
+func merge_region_on_random_cell(rdr : RegionDataResource) -> bool:
+	if not is_valid():
+		return false
+	
+	var mcells = get_merge_cells()
+	if mcells.size() > 0:
+		var idx : int = _RNG.randi_range(0, mcells.size() - 1)
+		return merge_region_on_cell(mcells[idx].position, rdr)
+	return false
 
 func set_merge_cell(pos : Vector2, wall : int, enable : bool = true) -> void:
 	if WALL.values().find(wall) >= 0:
@@ -410,14 +456,15 @@ func is_merge_cell(pos : Vector2) -> bool:
 		return _cells[pos].has("merge")
 	return false
 
-func get_merge_cells() -> Array:
+func get_merge_cells(dir : int = 0) -> Array:
 	var mcl : Array = []
 	for key in _cells.keys():
 		if _cells[key].has("merge"):
-			mcl.append({
-				"position":key,
-				"merge":_cells[key].merge,
-			})
+			if dir <= 0 or _cells[key].merge == dir:
+				mcl.append({
+					"position":key,
+					"merge":_cells[key].merge,
+				})
 	return mcl
 
 

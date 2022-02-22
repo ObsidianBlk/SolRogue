@@ -46,16 +46,16 @@ func _unhandled_input(event) -> void:
 # Public Methods
 # -------------------------------------------------------------------------
 func start_turn_with(player : Actor) -> void:
-	print("Checking is legit player")
+	#print("Checking is legit player")
 	if _player == null and player != null:
-		print("Player's turn")
+		#print("Player's turn")
 		_player = player
 		set_process_unhandled_input(true)
 		emit_signal("player_turn_started", _player)
 
 func end_turn(time : float) -> void:
 	if _player != null and time > 0.0:
-		print("Done with player")
+		#print("Done with player")
 		set_process_unhandled_input(false)
 		_player.end_turn(time)
 		_player = null
