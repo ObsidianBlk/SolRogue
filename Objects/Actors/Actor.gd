@@ -124,12 +124,20 @@ func prop(component_name : String, property_name : String, default_value = null)
 		return actor_data.get_property(component_name, property_name)
 	return default_value
 
+func set_prop(component_name : String, property_name : String, value) -> void:
+	if actor_data:
+		actor_data.set_property(component_name, property_name, value)
+
 func cc(component_name : String, method : String, args : Array = [], default_value = null):
 	if component_name in _component_methods:
 		var cinfo = _component_methods[component_name]
 		if cinfo.method.find(method) >= 0:
 			return cinfo.node.callv(method, args)
 	return default_value
+
+func get_area_light() -> Light2D:
+	var light : Light2D = get_node_or_null("Light_Area")
+	return light
 
 func end_turn(time : float) -> void:
 	emit_signal("turn_ended", time, self)

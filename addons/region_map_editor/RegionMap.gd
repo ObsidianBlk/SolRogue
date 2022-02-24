@@ -66,8 +66,8 @@ func _ready() -> void:
 	actor_container_node = Node2D.new()
 	wall_tilemap_node = TileMap.new()
 	add_child(floor_tilemap_node)
-	add_child(actor_container_node)
 	add_child(wall_tilemap_node)
+	add_child(actor_container_node)
 	if region_data_resource != null:
 		var cell_size = Vector2(
 			region_data_resource.tile_size,

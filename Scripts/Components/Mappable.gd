@@ -8,11 +8,15 @@ const IDENTITY : String = "Mappable"
 # -------------------------------------------------------------------------
 # Variables
 # -------------------------------------------------------------------------
+var tween_node : Tween = null
+var tween_to_pos : Vector2 = Vector2.ZERO
 
 # -------------------------------------------------------------------------
 # Onready Variables
 # -------------------------------------------------------------------------
-
+func _ready() -> void:
+	tween_node = Tween.new()
+	add_child(tween_node)
 
 # -------------------------------------------------------------------------
 # Component Override Methods
@@ -55,6 +59,24 @@ func _map_to_world() -> void:
 		var pos = map.map_position_to_world_space(_actor.actor_data.get_property(IDENTITY, "position"), true)
 		_actor.position = pos
 
+func _tween_move(from_pos : Vector2, to_pos : Vector2, dur : float) -> void:
+	if tween_node:
+		var map : RegionMap = _get_map()
+		if not map:
+			return
+		
+		tween_to_pos = to_pos
+		var from_wpos = map.map_position_to_world_space(from_pos, true)
+		var to_wpos = map.map_position_to_world_space(to_pos, true)
+		tween_node.interpolate_property(
+			_actor, "position",
+			from_wpos, to_wpos,
+			dur,
+			Tween.TRANS_LINEAR, Tween.EASE_IN_OUT
+		)
+		tween_node.start()
+		yield(tween_node, "tween_all_completed")
+
 # -------------------------------------------------------------------------
 # Public Methods
 # -------------------------------------------------------------------------
@@ -68,18 +90,25 @@ func can_move(dir : int) -> bool:
 	return false
 
 func move(dir : int) -> float:
+	if tween_node and tween_node.is_active():
+		tween_node.stop_all()
+		_actor.actor_data.set_property(IDENTITY, "position", tween_to_pos)
+		
+	
 	if can_move(dir):
 		var pos = _actor.prop(IDENTITY, "position", Vector2.ZERO)
+		var npos = pos
 		match dir:
 			RegionMap.NORTH:
-				pos += Vector2.UP
+				npos += Vector2.UP
 			RegionMap.SOUTH:
-				pos += Vector2.DOWN
+				npos += Vector2.DOWN
 			RegionMap.EAST:
-				pos += Vector2.RIGHT
+				npos += Vector2.RIGHT
 			RegionMap.WEST:
-				pos += Vector2.LEFT
-		_actor.actor_data.set_property(IDENTITY, "position", pos)
+				npos += Vector2.LEFT
+		_tween_move(pos, npos, 0.25)
+		_actor.actor_data.set_property(IDENTITY, "position", npos)
 		return _actor.prop(IDENTITY, "speed", 0.0)
 	return 0.0
 
